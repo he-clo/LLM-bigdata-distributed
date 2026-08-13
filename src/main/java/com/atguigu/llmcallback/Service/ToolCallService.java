@@ -1,5 +1,7 @@
 package com.atguigu.llmcallback.Service;
 
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONObject;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
@@ -81,18 +83,16 @@ public class ToolCallService{
     /**
      * 具体的业务调用方法 (优化版)
      */
-    public String callAdd(String title) {
-        // 建议加上 try-catch，因为 MCP 调用可能会抛出网络异常或服务端报错
-        try {
-            // 直接复用通用的调用方法
-            McpSchema.CallToolResult callToolResult = callToolByName("search_movie", Map.of("title", title));
-            String text= extractTextFromResult(callToolResult);
-            return text;
-        } catch (Exception e) {
-            System.err.println("调用 add 工具失败: " + e.getMessage());
-            // 这里可以包装成一个错误的 CallToolResult 抛出去，或者直接抛出 RuntimeException
-            throw new RuntimeException(e);
-        }
+    public JSONObject callAdd(String title) {
+        McpSchema.CallToolResult result = callToolByName(
+                "search_movie",
+                Map.of("title", title)
+        );
+
+        String jsonText = extractTextFromResult(result);
+
+        // ✅ 关键：解析 JSON
+        return JSON.parseObject(jsonText);
     }
 
     /**

@@ -2,6 +2,8 @@ package com.atguigu.llmcallback.Service;
 
 import com.atguigu.llmcallback.DTO.Movie;
 import com.atguigu.llmcallback.Repository.MovieSearchRepository;
+import com.atguigu.llmcallback.context.DataSourceContext;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -67,6 +69,7 @@ import java.util.stream.Collectors;
 
 
 @Service
+@Slf4j
 public class SimilarMovieSearchService {
 
     @Autowired
@@ -76,28 +79,36 @@ public class SimilarMovieSearchService {
      * 输入电影标题，返回相似的 10 部电影
      */
     public List<Movie> recommendByTitle(String title) {
-        // Step 1：找到输入电影及其向量
-        Movie sourceMovie = repo.findMovieByTitle(title);
-        if (sourceMovie == null || sourceMovie.embeddingText == null) {
-            return Collections.emptyList(); // 没找到
+        DataSourceContext.set(DataSourceContext.SLAVE);
+        try {
+            log.info("寻找相似电影, title={}", title);
+
+            Movie sourceMovie = repo.findMovieByTitle(title);
+            if (sourceMovie == null || sourceMovie.embeddingText == null) {
+                log.warn("未找到电影或向量为空, title={}", title);
+                return Collections.emptyList();
+            }
+
+            List<Movie> candidates = repo.recallByTextVector(
+                    sourceMovie.embeddingText,
+                    sourceMovie.movieId
+            );
+
+            if (sourceMovie.embeddingImage != null && sourceMovie.embeddingImage.length > 0) {
+                candidates = lateFusion(sourceMovie, candidates);
+            }
+
+            return candidates.stream()
+                    .sorted(Comparator.comparingDouble((Movie m) -> m.similarity).reversed())
+                    .limit(10)
+                    .collect(Collectors.toList());
+
+        } catch (Exception e) {
+            log.error("推荐电影失败, title={}", title, e); // ❗不要只 printStackTrace
+            return Collections.emptyList(); // ✅ 必须有返回值
+        } finally {
+            DataSourceContext.clear();
         }
-
-        // Step 2：用文本向量召回候选
-        List<Movie> candidates = repo.recallByTextVector(
-                sourceMovie.embeddingText,
-                sourceMovie.movieId
-        );
-
-        // Step 3：如果有图片向量，做 Late Fusion
-        if (sourceMovie.embeddingImage != null && sourceMovie.embeddingImage.length > 0) {
-            candidates = lateFusion(sourceMovie, candidates);
-        }
-
-        // Step 4：排序并返回 Top 10
-        return candidates.stream()
-                .sorted(Comparator.comparingDouble((Movie m) -> m.similarity).reversed())
-                .limit(10)
-                .collect(Collectors.toList());
     }
 
     /**
