@@ -8,7 +8,7 @@
 
 ## 技术架构
 [画一张图或文字描述：数据流从爬取→向量化→存储→召回→排序→LLM润色]
-https://github.com/he-clo/LLM-bigdata-distributed/blob/master/62585f1146fb12edb964d8df2756531.jpg
+![数据流图](./62585f1146fb12edb964d8df2756531.jpg)
 
 ## 核心技术点
 
