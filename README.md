@@ -8,8 +8,7 @@
 
 ## 技术架构
 [画一张图或文字描述：数据流从爬取→向量化→存储→召回→排序→LLM润色]
-
-![62585f1146fb12edb964d8df2756531](C:\Users\28188\Documents\WeChat Files\wxid_8vt7t0dth7g322\FileStorage\Temp\62585f1146fb12edb964d8df2756531.jpg)
+https://github.com/he-clo/LLM-bigdata-distributed/blob/master/62585f1146fb12edb964d8df2756531.jpg
 
 ## 核心技术点
 
