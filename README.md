@@ -61,6 +61,9 @@
 ## docker 发布
 在release里有发布文件，对应的yml图片如下，启动时应该先启动search.py，即mcp服务，还需要postergresql数据库、redis单体、ollama单机等服务。test_clip是图片计算服务，rabbitmq主要是批处理，这两个不启动不会影响服务。ollama需要安装bge-m3.
 
+![yml1](./yml1.png)
+![yml2](./yml2.png)
+
 
 下边提供参考的docker-compose.yml：
 ```yaml
@@ -164,3 +167,6 @@ volumes:
   redisdata:
   ollamadata:
 ```
+
+## 最终评价
+本产品旨在成为站长所使用模板站的轻量级挂件，也具有衍化成单独产品的可能，比如成为用户或平台的AI宠物，根据使用痕迹进行个性化推荐和交流。
