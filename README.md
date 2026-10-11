@@ -57,3 +57,110 @@
 - 中英文对齐效果有待提升
 - 并发处理：MCP 工具当前单实例，后续可通过环境变量注入多 key + 负载均衡
 - 推荐多样性：当前未显式控制
+
+## docker 发布
+在release里有发布文件，对应的yml图片如下，启动时应该先启动search.py，即mcp服务，还需要postergresql数据库、redis单体、ollama单机等服务。test_clip是图片计算服务，rabbitmq主要是批处理，这两个不启动不会影响服务。ollama需要安装bge-m3.
+
+
+下边提供参考的docker-compose.yml：
+```yaml
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: llm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: llm_callback
+      POSTGRES_USER: llm
+      POSTGRES_PASSWORD: llm123456
+      TZ: Asia/Shanghai
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U llm -d llm_callback"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: llm-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --bind 0.0.0.0
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: llm-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollamadata:/root/.ollama
+
+  mcp-search:
+    build:
+      context: ./mcp_server
+      dockerfile: Dockerfile
+    container_name: lcp-search
+    restart: unless-stopped
+    command: ["python", "search.py"]
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/health', timeout=2).status==200 else 1)"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  llm-callback:
+    image: llm-callback:1.0
+    container_name: llm-callback
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+      mcp-search:
+        condition: service_healthy
+    environment:
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
+      SPRING_DATA_REDIS_PASSWORD: ""
+
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/llm_callback
+      SPRING_DATASOURCE_USERNAME: llm
+      SPRING_DATASOURCE_PASSWORD: llm123456
+
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL_EMBED: bge-m3:latest
+
+      SPRING_AI_OPENAI_BASE_URL: https://api.deepseek.com
+      SPRING_AI_OPENAI_API_KEY: sk-你的deepseek-key
+      SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: deepseek-chat
+
+      MCP_SERVER_URL: http://mcp-search:8001
+      SPRING_CLOUD_NACOS_DISCOVERY_ENABLED: "false"
+      TZ: Asia/Shanghai
+    ports:
+      - "8082:8082"
+
+volumes:
+  pgdata:
+  redisdata:
+  ollamadata:
+```
